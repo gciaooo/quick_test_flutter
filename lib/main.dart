@@ -143,39 +143,78 @@ class _LoginPageState extends State<_LoginPage> {
         elevation: 3.0,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 0.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextField(
-                decoration: AppDesign.textFieldsDecoration.copyWith(
-                  hintText: "Username",
-                  prefixIcon: const Icon(Icons.person),
-                ),
-              ),
-              const SizedBox(
-                height: 20.0,
-              ),
-              TextField(
-                obscureText: true,
-                decoration: AppDesign.textFieldsDecoration.copyWith(
-                  hintText: "Password",
-                  prefixIcon: const Icon(Icons.key),
-                ),
-              ),
-              const SizedBox(
-                height: 20.0,
-              ),
-              //TODO: implement login back-end
-              ElevatedButton(
-                onPressed: null,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white),
-                child: const Text("Login"),
-              ),
-            ],
-          ),
+          child: LoginForm(),
         ),
+      ),
+    );
+  }
+}
+
+class LoginForm extends StatefulWidget {
+  const LoginForm({
+    super.key,
+  });
+
+  @override
+  State<LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<LoginForm> {
+  final _loginFormKey = GlobalKey<FormState>();
+
+  late String? email, password;
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _loginFormKey,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextFormField(
+            onSaved: (String? value) => email = value,
+            validator: (String? value) {
+              return value == null || value.isEmpty
+                  ? 'Please enter an username'
+                  : null;
+            },
+            decoration: AppDesign.textFieldsDecoration.copyWith(
+              hintText: "Username",
+              prefixIcon: const Icon(Icons.person),
+            ),
+          ),
+          const SizedBox(
+            height: 20.0,
+          ),
+          TextFormField(
+            obscureText: true,
+            onSaved: (String? value) => password = value,
+            validator: (String? value) {
+              return value == null || value.isEmpty
+                  ? 'Please enter a password'
+                  : null;
+            },
+            decoration: AppDesign.textFieldsDecoration.copyWith(
+              hintText: "Password",
+              prefixIcon: const Icon(Icons.key),
+            ),
+          ),
+          const SizedBox(
+            height: 20.0,
+          ),
+          //TODO: implement login back-end
+          ElevatedButton(
+            onPressed: () {
+              if (_loginFormKey.currentState!.validate()) {
+                _loginFormKey.currentState!.save();
+                login(email!, password!);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white),
+            child: const Text("Login"),
+          ),
+        ],
       ),
     );
   }
@@ -185,3 +224,5 @@ class AppDesign {
   static const InputDecoration textFieldsDecoration =
       InputDecoration(border: OutlineInputBorder());
 }
+
+void login(String email, String password) {}
