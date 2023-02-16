@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -29,25 +36,47 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int selectedindex = 0;
-  // bool logged = false;
+  bool logged = false;
+
+  static FirebaseAuth auth = FirebaseAuth.instance;
 
   final List<Widget> _widgetOptions = <Widget>[
     _MainPage(),
-    _LoginPage(),
     _SettingsPage(),
+    _LoginPage(),
   ];
 
-  // void toggleLogin() {
-  //   setState(() {
-  //     if (!logged) {
-  //       _widgetOptions.contains(_LoginPage)
-  //     }
-  //   });
-  // }
+  void toggleLogin() {
+    _widgetOptions
+        .removeWhere((e) => e.runtimeType == _LoginPage().runtimeType);
+    if (!logged) {
+      _widgetOptions.add(_LoginPage());
+    }
+    _changeIndex(0);
+  }
 
-  void _changeIndex(int index) {
+  void _changeIndex(int index) async {
+    int temp = index;
+    if (index == 2 && logged) {
+      temp = 0;
+      await auth.signOut();
+    }
     setState(() {
-      selectedindex = index;
+      selectedindex = temp;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    auth.authStateChanges().listen((User? user) {
+      if (user == null) {
+        logged = false;
+        toggleLogin();
+      } else {
+        logged = true;
+        toggleLogin();
+      }
     });
   }
 
@@ -62,20 +91,26 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       body: Center(
+        // child: _botNavBarChange(selectedindex),
         child: _widgetOptions.elementAt(selectedindex),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
+        items: <BottomNavigationBarItem>[
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: "Home",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Login"),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: "Settings",
           ),
+          if (!logged)
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.person), label: "Login"),
+          if (logged)
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.logout), label: "Logout"),
         ],
         currentIndex: selectedindex,
         onTap: _changeIndex,
@@ -136,13 +171,13 @@ class _LoginPage extends StatefulWidget {
 class _LoginPageState extends State<_LoginPage> {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return const SizedBox(
       width: 350,
       height: 300,
       child: Card(
         elevation: 3.0,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 0.0),
+          padding: EdgeInsets.symmetric(horizontal: 30.0, vertical: 0.0),
           child: LoginForm(),
         ),
       ),
@@ -163,8 +198,28 @@ class _LoginFormState extends State<LoginForm> {
   final _loginFormKey = GlobalKey<FormState>();
 
   late String? email, password;
+
+  static FirebaseAuth auth = FirebaseAuth.instance;
+
+  Future<void> _login(String email, String password) async {
+    try {
+      final credential = await auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      print('LOGGED! uid: ${credential.user!.uid}');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        print('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        print('Wrong password provided for that user.');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    auth.authStateChanges().listen((User? user) {
+      if (user == null) {}
+    });
     return Form(
       key: _loginFormKey,
       child: Column(
@@ -206,7 +261,7 @@ class _LoginFormState extends State<LoginForm> {
             onPressed: () {
               if (_loginFormKey.currentState!.validate()) {
                 _loginFormKey.currentState!.save();
-                login(email!, password!);
+                _login(email!, password!);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -224,5 +279,3 @@ class AppDesign {
   static const InputDecoration textFieldsDecoration =
       InputDecoration(border: OutlineInputBorder());
 }
-
-void login(String email, String password) {}
