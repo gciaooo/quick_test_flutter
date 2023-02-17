@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -36,7 +37,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int selectedindex = 0;
-  bool logged = false;
+  static bool logged = false;
 
   static FirebaseAuth auth = FirebaseAuth.instance;
 
@@ -72,11 +73,10 @@ class _MyHomePageState extends State<MyHomePage> {
     auth.authStateChanges().listen((User? user) {
       if (user == null) {
         logged = false;
-        toggleLogin();
       } else {
         logged = true;
-        toggleLogin();
       }
+      toggleLogin();
     });
   }
 
@@ -94,6 +94,8 @@ class _MyHomePageState extends State<MyHomePage> {
         // child: _botNavBarChange(selectedindex),
         child: _widgetOptions.elementAt(selectedindex),
       ),
+      floatingActionButton:
+          selectedindex == 0 ? _QuickTestActionButton() : null,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: <BottomNavigationBarItem>[
@@ -119,18 +121,102 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class _MainPage extends StatelessWidget {
+class _QuickTestActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return SpeedDial(
+      icon: Icons.add,
+      activeIcon: Icons.cancel,
+      mini: false,
       children: [
-        Text(
-          "Benvenuto su Quick Test!",
-          style: Theme.of(context).textTheme.headlineSmall,
+        SpeedDialChild(
+          child: const Icon(Icons.document_scanner),
+          label: "Scannerizza test",
         ),
-        const SizedBox(height: 30),
+        SpeedDialChild(
+          child: const Icon(Icons.note_add_rounded),
+          label: "Importa test",
+        ),
       ],
+    );
+  }
+}
+
+class _MainPage extends StatefulWidget {
+  @override
+  State<_MainPage> createState() => _MainPageState();
+}
+
+class _MainPageState extends State<_MainPage> {
+  bool logged = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return !logged
+        ? Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Benvenuto su Quick Test!",
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 30),
+            ],
+          )
+        : _MainPageLogged();
+  }
+}
+
+class UserPlaceholder {
+  UserPlaceholder(this.displayName);
+  final String displayName;
+}
+
+class _MainPageLogged extends StatelessWidget {
+  static FirebaseAuth auth = FirebaseAuth.instance;
+
+  UserPlaceholder user = UserPlaceholder("ggiacomo");
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(10.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Text(
+              "Pagina di ${user.displayName}",
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+          const SizedBox(
+            height: 30,
+          ),
+          Text(
+            "Test Recenti",
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const Divider(),
+          SizedBox(
+            height: 500,
+            child: ListView(
+              padding: const EdgeInsets.all(1),
+              children: [
+                Text(
+                  "prova",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  "prova2",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
