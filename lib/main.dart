@@ -42,7 +42,7 @@ class _MyHomePageState extends State<MyHomePage> {
   static FirebaseAuth auth = FirebaseAuth.instance;
 
   final List<Widget> _widgetOptions = <Widget>[
-    _MainPage(),
+    _MainPage(logged),
     _SettingsPage(),
     _LoginPage(),
   ];
@@ -53,6 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!logged) {
       _widgetOptions.add(_LoginPage());
     }
+    _widgetOptions[0] = _MainPage(logged);
     _changeIndex(0);
   }
 
@@ -142,13 +143,10 @@ class _QuickTestActionButton extends StatelessWidget {
   }
 }
 
-class _MainPage extends StatefulWidget {
-  @override
-  State<_MainPage> createState() => _MainPageState();
-}
+class _MainPage extends StatelessWidget {
+  const _MainPage(this.logged);
 
-class _MainPageState extends State<_MainPage> {
-  bool logged = true;
+  final bool logged;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +173,7 @@ class UserPlaceholder {
 class _MainPageLogged extends StatelessWidget {
   static FirebaseAuth auth = FirebaseAuth.instance;
 
-  UserPlaceholder user = UserPlaceholder("ggiacomo");
+  final UserPlaceholder user = UserPlaceholder("ggiacomo");
 
   @override
   Widget build(BuildContext context) {
