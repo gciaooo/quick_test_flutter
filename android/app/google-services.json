@@ -1,0 +1,83 @@
+{
+  "project_info": {
+    "project_number": "890990883410",
+    "firebase_url": "https://quicktest-svelte-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "quicktest-svelte",
+    "storage_bucket": "quicktest-svelte.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890990883410:android:bd20d65276b70b7973658b",
+        "android_client_info": {
+          "package_name": "com.example.quick_test_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "890990883410-kh397cld3lnd0mlq6lquode7ps8tevt1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsI4YuYOFCLFv4ORmZKuUr9Jck6FnqKWg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "890990883410-kh397cld3lnd0mlq6lquode7ps8tevt1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "890990883410-23krclooe4d22lvb9033t98d6at4l2ir.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.quickTestFlutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890990883410:android:c69952941edf89bc73658b",
+        "android_client_info": {
+          "package_name": "org.nativescript.quicktest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "890990883410-kh397cld3lnd0mlq6lquode7ps8tevt1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsI4YuYOFCLFv4ORmZKuUr9Jck6FnqKWg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "890990883410-kh397cld3lnd0mlq6lquode7ps8tevt1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "890990883410-23krclooe4d22lvb9033t98d6at4l2ir.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.quickTestFlutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
