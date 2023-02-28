@@ -4,20 +4,16 @@ import 'package:flutter/material.dart';
 
 import 'package:xml/xml.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:file_picker/file_picker.dart';
 
-import 'package:quick_test_flutter/test.dart';
-import 'firebase_options.dart';
+import 'test.dart';
+import 'firebase_api.dart';
 
 //TODO: if building release ver: https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await FirebaseAPI.initializeApp();
   runApp(const MyApp());
 }
 
@@ -48,8 +44,6 @@ class _MyHomePageState extends State<MyHomePage> {
   int selectedindex = 0;
   static bool logged = false;
 
-  static FirebaseAuth auth = FirebaseAuth.instance;
-
   final List<Widget> _widgetOptions = <Widget>[
     _MainPage(logged),
     _SettingsPage(),
@@ -70,17 +64,15 @@ class _MyHomePageState extends State<MyHomePage> {
     int temp = index;
     if (index == 2 && logged) {
       temp = 0;
-      await auth.signOut();
+      await FirebaseAPI.auth.signOut();
     }
     setState(() {
       selectedindex = temp;
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    auth.authStateChanges().listen((User? user) {
+  void _setAuthListener() {
+    FirebaseAPI.auth.authStateChanges().listen((User? user) {
       if (user == null) {
         logged = false;
       } else {
@@ -88,6 +80,12 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       toggleLogin();
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _setAuthListener();
   }
 
   @override
@@ -101,7 +99,6 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       body: Center(
-        // child: _botNavBarChange(selectedindex),
         child: _widgetOptions.elementAt(selectedindex),
       ),
       floatingActionButton:
@@ -225,39 +222,6 @@ class _TestView extends StatefulWidget {
 class _TestViewState extends State<_TestView> {
   late final List<bool> expandedItems;
 
-  final userTestsRef = FirebaseDatabase.instance
-      .ref("users/${FirebaseAuth.instance.currentUser!.uid}/tests");
-  final testsRef = FirebaseDatabase.instance.ref("tests");
-  final questionsRef = FirebaseDatabase.instance.ref("questions");
-
-  void addTestToDatabase() {
-    List<String?> questionsKeys = [];
-    //aggiungo le questions e conservo la loro chiave su questionKeys
-    for (Question q in widget.getQuestions()) {
-      var qKey = questionsRef.push().key;
-      questionsKeys.add(qKey);
-      if (qKey != null) {
-        questionsRef.child(qKey).set(q.toJson());
-      }
-    }
-    //setto una key per il test
-    var tKey = testsRef.push().key;
-    if (tKey != null) {
-      //aggiungo la chiave del test all'utente corrente
-      userTestsRef.update({tKey: true});
-
-      //aggiungo il test
-      testsRef.child(tKey).set(widget.test.toJson());
-
-      //aggiungo le questionKeys al test
-      for (String? k in questionsKeys) {
-        if (k != null) {
-          testsRef.child("$tKey/questions").update({k: true});
-        }
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -308,7 +272,7 @@ class _TestViewState extends State<_TestView> {
               ),
               ElevatedButton(
                   onPressed: () {
-                    addTestToDatabase();
+                    FirebaseAPI.addTestToDatabase(widget.test);
                     Navigator.pop(context);
                   },
                   child: const Text("Conferma")),
@@ -341,14 +305,8 @@ class _MainPage extends StatelessWidget {
   }
 }
 
-class UserPlaceholder {
-  UserPlaceholder(this.displayName);
-  final String displayName;
-}
-
 class _MainPageLogged extends StatelessWidget {
-  static FirebaseAuth auth = FirebaseAuth.instance;
-  final user = UserPlaceholder("ggiacomo");
+  final user = FirebaseAPI.auth.currentUser!;
 
   @override
   Widget build(BuildContext context) {
@@ -360,7 +318,7 @@ class _MainPageLogged extends StatelessWidget {
         children: [
           Center(
             child: Text(
-              "Pagina di ${user.displayName}",
+              "Pagina di ${user.uid}",
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
@@ -392,38 +350,13 @@ class TestListView extends StatefulWidget {
 }
 
 class _TestListViewState extends State<TestListView> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _db = FirebaseDatabase.instance;
   late final StreamSubscription _testsData;
 
   void setDBListeners() {
-    _testsData = _db
-        .ref("users/${_auth.currentUser!.uid}/tests")
-        .onValue
-        .listen((event) {
+    _testsData = FirebaseAPI.userTestsRef.onValue.listen((event) {
       tests.clear();
-      Map<String, dynamic> testKeys = Map<String, dynamic>.from(
-          event.snapshot.value as Map<Object?, Object?>);
-      testKeys.forEach((key, value) {
-        _db.ref("tests/$key").get().then((test) {
-          List<Question> qList = [];
-          Map<String, dynamic> testData =
-              Map<String, dynamic>.from(test.value! as Map<Object?, Object?>);
-          Map<String, dynamic> questionKeys = Map<String, dynamic>.from(
-              test.child("questions").value as Map<Object?, Object?>);
-          questionKeys.forEach((key, value) {
-            _db.ref("questions/$key").get().then((value) {
-              Map<String, dynamic> qData = Map<String, dynamic>.from(
-                  value.value as Map<Object?, Object?>);
-              qList.add(Question.fromJson(qData));
-            });
-          });
-          testData["questions"] = qList;
-          testData["id"] = key;
-          setState(() {
-            tests.add(Test.fromJson(testData));
-          });
-        });
+      setState(() {
+        tests = FirebaseAPI.getUserTests(event);
       });
       debugPrint(tests.toString());
     });
@@ -455,6 +388,7 @@ class _TestListViewState extends State<TestListView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text("Prova " '${t.id}'),
+                  //TODO: change data format with dart:intl
                   Text("Data creazione: ${t.date.day}"
                       "/"
                       "${t.date.month}"
@@ -534,27 +468,14 @@ class _LoginFormState extends State<LoginForm> {
 
   late String? email, password;
 
-  static FirebaseAuth auth = FirebaseAuth.instance;
-
   Future<void> _login(String email, String password) async {
-    try {
-      final credential = await auth.signInWithEmailAndPassword(
-          email: email, password: password);
-      debugPrint('LOGGED! uid: ${credential.user!.uid}');
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        debugPrint('No user found for that email.');
-      } else if (e.code == 'wrong-password') {
-        debugPrint('Wrong password provided for that user.');
-      }
-    }
+    await FirebaseAPI.auth
+        .signInWithEmailAndPassword(email: email, password: password);
+    debugPrint('LOGGED! uid: ${FirebaseAPI.auth.currentUser!.uid}');
   }
 
   @override
   Widget build(BuildContext context) {
-    auth.authStateChanges().listen((User? user) {
-      if (user == null) {}
-    });
     return Form(
       key: _loginFormKey,
       child: Column(
