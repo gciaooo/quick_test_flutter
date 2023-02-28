@@ -4,7 +4,7 @@ import 'package:xml/xml.dart';
 import 'package:intl/intl.dart';
 
 class Test {
-  final int id;
+  final String id;
   final DateTime date;
   final List<Question> questions;
 
@@ -14,7 +14,7 @@ class Test {
       : date = DateUtils.dateOnly(DateTime.now());
 
   Test.fromXml(XmlDocument document)
-      : id = 0,
+      : id = "0",
         date = DateUtils.dateOnly(DateTime.now()),
         questions = [] {
     document.rootElement.findElements("question").forEach((q) {
@@ -43,15 +43,16 @@ class Test {
     Test(id, date, questions);
   }
 
-  // Test.fromMap(Map<String, dynamic> map)
-  //     : id = int.parse(map["id"].toString().substring(1)),
-  //       date = DateFormat("d-M-y").parse(map["date"]),
-  //       questions = [] {
-  //   map["questions"].forEach((value) {
-  //     questions.add(
-  //         Question.fromJson(Map<String, dynamic>.from(value.value as dynamic)));
-  //   });
-  // }
+  Test.fromJson(Map<String, dynamic> map)
+      : id = map["id"] as String,
+        date = DateFormat("d-M-y").parse(map["date"]),
+        questions = [] {
+    map["questions"].forEach((value) {
+      questions.add(Question.fromJson(
+          Map<String, dynamic>.from(value as Map<Object?, Object?>)));
+    });
+  }
+
   Map<String, dynamic> toJson() => {
         "date": date.toString(),
       };
@@ -135,10 +136,10 @@ class Question {
     };
   }
 
-  // Question.fromJson(dynamic map)
-  //     : name = map["name"].toString(),
-  //       isTrueFalse = map["isTrueFalse"],
-  //       text = map["text"].toString(),
-  //       answers = List<String>.from(map["answers"]),
-  //       correctIndex = map["correctIndex"];
+  Question.fromJson(Map<String, dynamic> map)
+      : name = map["name"] as String,
+        isTrueFalse = map["isTrueFalse"] as bool,
+        text = map["text"] as String,
+        answers = List<String>.from(map["answers"]),
+        correctIndex = map["correctIndex"];
 }

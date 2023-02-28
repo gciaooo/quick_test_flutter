@@ -1,13 +1,15 @@
-import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+
+import 'package:xml/xml.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:quick_test_flutter/test.dart';
-import 'package:xml/xml.dart';
 import 'firebase_options.dart';
 
 //TODO: if building release ver: https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
@@ -390,33 +392,55 @@ class TestListView extends StatefulWidget {
 }
 
 class _TestListViewState extends State<TestListView> {
-  static FirebaseAuth auth = FirebaseAuth.instance;
-  static FirebaseDatabase db = FirebaseDatabase.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseDatabase _db = FirebaseDatabase.instance;
+  late final StreamSubscription _testsData;
 
-  final DatabaseReference userTestsRef =
-      db.ref('users/${auth.currentUser?.uid}/tests');
-  final DatabaseReference testsRef = db.ref('tests');
-
-  // void setDBListeners() async {
-  //   if (auth.currentUser != null) {
-  //     testsRef.onChildAdded.listen((testEvent) {
-  //       final Map<String, dynamic> testMap =
-  //           Map<String, dynamic>.from(testEvent.snapshot.value as dynamic);
-  //       testMap["id"] = testEvent.snapshot.key;
-  //       testMap["questions"] =
-  //           testEvent.snapshot.child("questions").children.toList();
-  //       debugPrint(testMap["questions"].runtimeType.toString());
-  //       tests.add(Test.fromMap(testMap));
-  //     });
-  //   }
-  // }
+  void setDBListeners() {
+    _testsData = _db
+        .ref("users/${_auth.currentUser!.uid}/tests")
+        .onValue
+        .listen((event) {
+      tests.clear();
+      Map<String, dynamic> testKeys = Map<String, dynamic>.from(
+          event.snapshot.value as Map<Object?, Object?>);
+      testKeys.forEach((key, value) {
+        _db.ref("tests/$key").get().then((test) {
+          List<Question> qList = [];
+          Map<String, dynamic> testData =
+              Map<String, dynamic>.from(test.value! as Map<Object?, Object?>);
+          Map<String, dynamic> questionKeys = Map<String, dynamic>.from(
+              test.child("questions").value as Map<Object?, Object?>);
+          questionKeys.forEach((key, value) {
+            _db.ref("questions/$key").get().then((value) {
+              Map<String, dynamic> qData = Map<String, dynamic>.from(
+                  value.value as Map<Object?, Object?>);
+              qList.add(Question.fromJson(qData));
+            });
+          });
+          testData["questions"] = qList;
+          testData["id"] = key;
+          setState(() {
+            tests.add(Test.fromJson(testData));
+          });
+        });
+      });
+      debugPrint(tests.toString());
+    });
+  }
 
   List<Test> tests = [];
 
   @override
   void initState() {
     super.initState();
-    // setDBListeners();
+    setDBListeners();
+  }
+
+  @override
+  void deactivate() {
+    _testsData.cancel();
+    super.deactivate();
   }
 
   @override
