@@ -1,9 +1,18 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+
+import 'package:xml/xml.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:file_picker/file_picker.dart';
+
+import 'package:quick_test_flutter/test.dart';
 import 'firebase_options.dart';
 
+//TODO: if building release ver: https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -96,7 +105,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: _widgetOptions.elementAt(selectedindex),
       ),
       floatingActionButton:
-          selectedindex == 0 ? _QuickTestActionButton() : null,
+          selectedindex == 0 && logged ? _QuickTestActionButton() : null,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: <BottomNavigationBarItem>[
@@ -106,7 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: "Settings",
+            label: "Impostazioni",
           ),
           if (!logged)
             const BottomNavigationBarItem(
@@ -135,11 +144,178 @@ class _QuickTestActionButton extends StatelessWidget {
           label: "Scannerizza test",
         ),
         SpeedDialChild(
+          onTap: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => _ImportTestPage()));
+          },
           child: const Icon(Icons.note_add_rounded),
           label: "Importa test",
         ),
       ],
     );
+  }
+}
+
+class _ImportTestPage extends StatefulWidget {
+  @override
+  State<_ImportTestPage> createState() => _ImportTestPageState();
+}
+
+class _ImportTestPageState extends State<_ImportTestPage> {
+  bool _selected = false;
+  late Test? test;
+
+  Future<Test?> _openTest() async {
+    FilePickerResult? res = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: ["xml"]);
+
+    if (res != null) {
+      File file = File(res.files.single.path!);
+      XmlDocument xmlFile = XmlDocument.parse(file.readAsStringSync());
+      Test t = Test.fromXml(xmlFile);
+      return t;
+    }
+    return null;
+  }
+
+  void _importTest() async {
+    test = await _openTest();
+    if (test != null) {
+      setState(() {
+        _selected = !_selected;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Conferma Test"),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            !_selected
+                ? FilledButton(
+                    onPressed: _importTest,
+                    child: const Text("Seleziona file..."),
+                  )
+                : _TestView(test!, true),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TestView extends StatefulWidget {
+  const _TestView(this.test, this.toAdd);
+  final Test test;
+  final bool toAdd;
+
+  List<Question> getQuestions() => test.questions;
+
+  @override
+  State<_TestView> createState() => _TestViewState();
+}
+
+class _TestViewState extends State<_TestView> {
+  late final List<bool> expandedItems;
+
+  final userTestsRef = FirebaseDatabase.instance
+      .ref("users/${FirebaseAuth.instance.currentUser!.uid}/tests");
+  final testsRef = FirebaseDatabase.instance.ref("tests");
+  final questionsRef = FirebaseDatabase.instance.ref("questions");
+
+  void addTestToDatabase() {
+    List<String?> questionsKeys = [];
+    //aggiungo le questions e conservo la loro chiave su questionKeys
+    for (Question q in widget.getQuestions()) {
+      var qKey = questionsRef.push().key;
+      questionsKeys.add(qKey);
+      if (qKey != null) {
+        questionsRef.child(qKey).set(q.toJson());
+      }
+    }
+    //setto una key per il test
+    var tKey = testsRef.push().key;
+    if (tKey != null) {
+      //aggiungo la chiave del test all'utente corrente
+      userTestsRef.update({tKey: true});
+
+      //aggiungo il test
+      testsRef.child(tKey).set(widget.test.toJson());
+
+      //aggiungo le questionKeys al test
+      for (String? k in questionsKeys) {
+        if (k != null) {
+          testsRef.child("$tKey/questions").update({k: true});
+        }
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    expandedItems = List<bool>.filled(widget.test.questions.length, false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      ExpansionPanelList(
+          children: widget.test.questions.map<ExpansionPanel>((Question q) {
+            return ExpansionPanel(
+              headerBuilder: (context, isExpanded) {
+                return ListTile(title: Text(q.name));
+              },
+              body: ListTile(
+                title: Text(q.text),
+                subtitle: Text(
+                    "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"),
+              ),
+              isExpanded: expandedItems[widget.test.questions.indexOf(q)],
+            );
+          }).toList(),
+          expansionCallback: (i, isExpanded) => setState(() {
+                expandedItems[i] = !isExpanded;
+              })),
+      const SizedBox(
+        height: 200.0,
+      ),
+      if (widget.toAdd)
+        Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Text(
+            "Confermi di voler importare questo test?",
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(
+            height: 20.0,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).buttonTheme.colorScheme!.error),
+                child: const Text("Annulla"),
+              ),
+              ElevatedButton(
+                  onPressed: () {
+                    addTestToDatabase();
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Conferma")),
+            ],
+          )
+        ]),
+    ]);
   }
 }
 
@@ -172,8 +348,7 @@ class UserPlaceholder {
 
 class _MainPageLogged extends StatelessWidget {
   static FirebaseAuth auth = FirebaseAuth.instance;
-
-  final UserPlaceholder user = UserPlaceholder("ggiacomo");
+  final user = UserPlaceholder("ggiacomo");
 
   @override
   Widget build(BuildContext context) {
@@ -197,24 +372,100 @@ class _MainPageLogged extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const Divider(),
-          SizedBox(
+          const SizedBox(
             height: 500,
-            child: ListView(
-              padding: const EdgeInsets.all(1),
-              children: [
-                Text(
-                  "prova",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  "prova2",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
+            child: TestListView(),
           ),
         ],
       ),
+    );
+  }
+}
+
+class TestListView extends StatefulWidget {
+  const TestListView({
+    super.key,
+  });
+
+  @override
+  State<TestListView> createState() => _TestListViewState();
+}
+
+class _TestListViewState extends State<TestListView> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseDatabase _db = FirebaseDatabase.instance;
+  late final StreamSubscription _testsData;
+
+  void setDBListeners() {
+    _testsData = _db
+        .ref("users/${_auth.currentUser!.uid}/tests")
+        .onValue
+        .listen((event) {
+      tests.clear();
+      Map<String, dynamic> testKeys = Map<String, dynamic>.from(
+          event.snapshot.value as Map<Object?, Object?>);
+      testKeys.forEach((key, value) {
+        _db.ref("tests/$key").get().then((test) {
+          List<Question> qList = [];
+          Map<String, dynamic> testData =
+              Map<String, dynamic>.from(test.value! as Map<Object?, Object?>);
+          Map<String, dynamic> questionKeys = Map<String, dynamic>.from(
+              test.child("questions").value as Map<Object?, Object?>);
+          questionKeys.forEach((key, value) {
+            _db.ref("questions/$key").get().then((value) {
+              Map<String, dynamic> qData = Map<String, dynamic>.from(
+                  value.value as Map<Object?, Object?>);
+              qList.add(Question.fromJson(qData));
+            });
+          });
+          testData["questions"] = qList;
+          testData["id"] = key;
+          setState(() {
+            tests.add(Test.fromJson(testData));
+          });
+        });
+      });
+      debugPrint(tests.toString());
+    });
+  }
+
+  List<Test> tests = [];
+
+  @override
+  void initState() {
+    super.initState();
+    setDBListeners();
+  }
+
+  @override
+  void deactivate() {
+    _testsData.cancel();
+    super.deactivate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(1),
+      children: [
+        for (Test t in tests)
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Prova " '${t.id}'),
+                  Text("Data creazione: ${t.date.day}"
+                      "/"
+                      "${t.date.month}"
+                      "/"
+                      "${t.date.year}"),
+                ],
+              ),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 8.0)),
+            ],
+          )
+      ],
     );
   }
 }
@@ -236,7 +487,7 @@ class _SettingsPageState extends State<_SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    //TODO: implement page
+    //TODO: implement settings page
     return ListView(
       children: const [
         ListTile(
@@ -289,12 +540,12 @@ class _LoginFormState extends State<LoginForm> {
     try {
       final credential = await auth.signInWithEmailAndPassword(
           email: email, password: password);
-      print('LOGGED! uid: ${credential.user!.uid}');
+      debugPrint('LOGGED! uid: ${credential.user!.uid}');
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        print('No user found for that email.');
+        debugPrint('No user found for that email.');
       } else if (e.code == 'wrong-password') {
-        print('Wrong password provided for that user.');
+        debugPrint('Wrong password provided for that user.');
       }
     }
   }
@@ -316,9 +567,10 @@ class _LoginFormState extends State<LoginForm> {
                   ? 'Please enter an username'
                   : null;
             },
-            decoration: AppDesign.textFieldsDecoration.copyWith(
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
               hintText: "Username",
-              prefixIcon: const Icon(Icons.person),
+              prefixIcon: Icon(Icons.person),
             ),
           ),
           const SizedBox(
@@ -332,15 +584,15 @@ class _LoginFormState extends State<LoginForm> {
                   ? 'Please enter a password'
                   : null;
             },
-            decoration: AppDesign.textFieldsDecoration.copyWith(
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
               hintText: "Password",
-              prefixIcon: const Icon(Icons.key),
+              prefixIcon: Icon(Icons.key),
             ),
           ),
           const SizedBox(
             height: 20.0,
           ),
-          //TODO: implement login back-end
           ElevatedButton(
             onPressed: () {
               if (_loginFormKey.currentState!.validate()) {
@@ -357,9 +609,4 @@ class _LoginFormState extends State<LoginForm> {
       ),
     );
   }
-}
-
-class AppDesign {
-  static const InputDecoration textFieldsDecoration =
-      InputDecoration(border: OutlineInputBorder());
 }
