@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:quick_test_flutter/pages/scan_page.dart';
 
 import 'firebase_api.dart';
 import 'pages/main_page.dart';
@@ -13,11 +15,14 @@ import 'pages/settings_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseAPI.initializeApp();
-  runApp(const MyApp());
+  final cameras = await availableCameras();
+  runApp(MyApp(cameras: cameras));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.cameras});
+
+  final List<CameraDescription> cameras;
 
   @override
   Widget build(BuildContext context) {
@@ -25,15 +30,16 @@ class MyApp extends StatelessWidget {
       title: 'Quick Test',
       theme: ThemeData(primarySwatch: Colors.indigo),
       themeMode: ThemeMode.light,
-      home: const MyHomePage(title: 'Quick Test'),
+      home: MyHomePage(title: 'Quick Test', cameras: cameras),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({super.key, required this.title, required this.cameras});
 
   final String title;
+  final List<CameraDescription> cameras;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -107,8 +113,9 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         child: _widgetOptions.elementAt(selectedindex),
       ),
-      floatingActionButton:
-          selectedindex == 0 && logged ? _QuickTestActionButton() : null,
+      floatingActionButton: selectedindex == 0 && logged
+          ? _QuickTestActionButton(cameras: widget.cameras)
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: <BottomNavigationBarItem>[
@@ -135,6 +142,10 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class _QuickTestActionButton extends StatelessWidget {
+  const _QuickTestActionButton({required this.cameras});
+
+  final List<CameraDescription> cameras;
+
   @override
   Widget build(BuildContext context) {
     return SpeedDial(
@@ -143,14 +154,14 @@ class _QuickTestActionButton extends StatelessWidget {
       mini: false,
       children: [
         SpeedDialChild(
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => screenshotPage(cameras))),
           child: const Icon(Icons.document_scanner),
           label: "Scannerizza test",
         ),
         SpeedDialChild(
-          onTap: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => importTestPage()));
-          },
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => importTestPage())),
           child: const Icon(Icons.note_add_rounded),
           label: "Importa test",
         ),
