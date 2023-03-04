@@ -54,13 +54,18 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<Widget> _widgetOptions = <Widget>[
     mainPage(logged),
     settingsPage(),
-    loginPage(),
+    logged ? accountPage() : loginPage(),
   ];
 
   void toggleLogin() {
-    _widgetOptions.removeWhere((e) => e.runtimeType == loginPage().runtimeType);
     if (!logged) {
+      _widgetOptions
+          .removeWhere((e) => e.runtimeType == accountPage().runtimeType);
       _widgetOptions.add(loginPage());
+    } else {
+      _widgetOptions
+          .removeWhere((e) => e.runtimeType == loginPage().runtimeType);
+      _widgetOptions.add(accountPage());
     }
     _widgetOptions[0] = mainPage(logged);
     _changeIndex(0);
@@ -68,10 +73,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _changeIndex(int index) async {
     int temp = index;
-    if (index == 2 && logged) {
-      temp = 0;
-      await FirebaseAPI.auth.signOut();
-    }
     setState(() {
       selectedindex = temp;
     });
@@ -129,10 +130,10 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           if (!logged)
             const BottomNavigationBarItem(
-                icon: Icon(Icons.person), label: "Login"),
+                icon: Icon(Icons.login), label: "Login"),
           if (logged)
             const BottomNavigationBarItem(
-                icon: Icon(Icons.logout), label: "Logout"),
+                icon: Icon(Icons.person), label: "Account"),
         ],
         currentIndex: selectedindex,
         onTap: _changeIndex,
@@ -161,10 +162,15 @@ class _QuickTestActionButton extends StatelessWidget {
         ),
         SpeedDialChild(
           onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => importTestPage())),
+              MaterialPageRoute(builder: (context) => importTestPage(true))),
           child: const Icon(Icons.note_add_rounded),
           label: "Importa test",
         ),
+        SpeedDialChild(
+          onTap: () => FirebaseAPI.auth.signOut(),
+          child: const Icon(Icons.logout),
+          label: "Logout",
+        )
       ],
     );
   }

@@ -21,6 +21,13 @@ class FirebaseAPI {
         options: DefaultFirebaseOptions.currentPlatform);
   }
 
+  static String? getUserDisplayName(User? user) {
+    if (user != null) {
+      return user.uid;
+    }
+    return null;
+  }
+
   static void addTestToDatabase(Test test) {
     List<String?> questionsKeys = [];
     //aggiungo le questions e conservo la loro chiave su questionKeys

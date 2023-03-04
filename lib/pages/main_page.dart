@@ -10,7 +10,8 @@ import '../firebase_api.dart';
 import '../test.dart';
 
 Widget mainPage(bool logged) => _MainPage(logged);
-Widget importTestPage() => _ImportTestPage();
+Widget accountPage() => _AccountPage();
+Widget importTestPage(bool toAdd) => _TestPage(toAdd: toAdd);
 
 class _MainPage extends StatelessWidget {
   const _MainPage(this.logged);
@@ -35,6 +36,8 @@ class _MainPage extends StatelessWidget {
 
 class _MainPageLogged extends StatelessWidget {
   final user = FirebaseAPI.auth.currentUser!;
+
+  String? userDisplayName() => FirebaseAPI.getUserDisplayName(user);
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +71,15 @@ class _MainPageLogged extends StatelessWidget {
   }
 }
 
+class _AccountPage extends StatelessWidget {
+  final user = FirebaseAPI.auth.currentUser;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TestListView();
+  }
+}
+
 class _TestListView extends StatefulWidget {
   @override
   State<_TestListView> createState() => _TestListViewState();
@@ -77,16 +89,19 @@ class _TestListViewState extends State<_TestListView> {
   late final StreamSubscription _testsData;
   final FirebaseDatabase _db = FirebaseDatabase.instance;
 
-  void setDBListeners() {
-    _testsData = FirebaseAPI.userTestsRef.onValue.listen((event) {
+  void setDBListeners() async {
+    _testsData = FirebaseAPI.userTestsRef.onValue.listen((event) async {
       //prendo e itero le chiavi dei test appartenenti all'utente corrente
       Map<String, dynamic> testKeys = Map<String, dynamic>.from(
           event.snapshot.value as Map<Object?, Object?>);
 
-      testKeys.forEach((key, value) {
+      for (var tk in testKeys.entries) {
+        // testKeys.forEach((key, value) {
         //prendo il valore del test iterato
-        _db.ref("tests/$key").get().then((test) {
-          //converto il valore del test in una mappa
+        var test = await _db.ref("tests/${tk.key}").get();
+        // _db.ref("tests/$key").get().then((test) {
+        //converto il valore del test in una mappa
+        if (test.exists) {
           Map<String, dynamic> testData =
               Map<String, dynamic>.from(test.value! as Map<Object?, Object?>);
 
@@ -95,27 +110,29 @@ class _TestListViewState extends State<_TestListView> {
               test.child("questions").value as Map<Object?, Object?>);
 
           List<Question> qList = [];
-          questionKeys.forEach((key, value) {
+          for (var q in questionKeys.entries) {
             //prendo il valore della domanda iterata
-            _db.ref("questions/$key").get().then((value) {
-              //converto in mappa
-              Map<String, dynamic> qData = Map<String, dynamic>.from(
-                  value.value! as Map<Object?, Object?>);
-              //aggiungo la domanda ad una lista
-              qList.add(Question.fromJson(qData));
-            });
-          });
+            var value = await _db.ref("questions/${q.key}").get();
+            // questionKeys.forEach((key, value) async {
+            // var value = await _db.ref("questions/$key").get();
+            //converto in mappa
+            Map<String, dynamic> qData = Map<String, dynamic>.from(
+                value.value! as Map<Object?, Object?>);
+            //aggiungo la domanda ad una lista
+            qList.add(Question.fromJson(qData));
+            //});
+          }
 
           //metto la lista delle domande dentro la mappa del test
           testData["questions"] = qList;
           //inserisco l'id dalla chiave della reference del test
-          testData["id"] = key;
+          testData["id"] = tk.key;
           debugPrint(testData.toString());
           setState(() {
             _tests.add(Test.fromJson(testData));
           });
-        });
-      });
+        }
+      }
     });
   }
 
@@ -141,17 +158,24 @@ class _TestListViewState extends State<_TestListView> {
         for (Test t in _tests)
           Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Prova " '${t.id}'),
-                  //TODO: change data format with dart:intl
-                  Text("Data creazione: ${t.date.day}"
-                      "/"
-                      "${t.date.month}"
-                      "/"
-                      "${t.date.year}"),
-                ],
+              OutlinedButton(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            _TestPage(test: t, toAdd: false))),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Prova " '${t.id}'),
+                    //TODO: change data format with dart:intl
+                    Text("Data creazione: ${t.date.day}"
+                        "/"
+                        "${t.date.month}"
+                        "/"
+                        "${t.date.year}"),
+                  ],
+                ),
               ),
               const Padding(padding: EdgeInsets.symmetric(vertical: 8.0)),
             ],
@@ -161,14 +185,18 @@ class _TestListViewState extends State<_TestListView> {
   }
 }
 
-class _ImportTestPage extends StatefulWidget {
+class _TestPage extends StatefulWidget {
+  _TestPage({this.test, required this.toAdd});
+
+  late Test? test;
+  final bool toAdd;
+
   @override
-  State<_ImportTestPage> createState() => _ImportTestPageState();
+  State<_TestPage> createState() => _TestPageState();
 }
 
-class _ImportTestPageState extends State<_ImportTestPage> {
+class _TestPageState extends State<_TestPage> {
   bool _selected = false;
-  late Test? test;
 
   Future<Test?> _openTest() async {
     FilePickerResult? res = await FilePicker.platform.pickFiles(
@@ -186,8 +214,8 @@ class _ImportTestPageState extends State<_ImportTestPage> {
   }
 
   void _importTest() async {
-    test = await _openTest();
-    if (test != null) {
+    widget.test = await _openTest();
+    if (widget.test != null) {
       setState(() {
         _selected = !_selected;
       });
@@ -198,17 +226,19 @@ class _ImportTestPageState extends State<_ImportTestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Conferma Test"),
+        title: widget.toAdd
+            ? const Text("Conferma Test")
+            : Text("Test ${widget.test!.id}"),
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            !_selected
+            !_selected && widget.toAdd
                 ? FilledButton(
                     onPressed: _importTest,
                     child: const Text("Seleziona file..."),
                   )
-                : _TestView(test!, true),
+                : _TestView(widget.test!, widget.toAdd),
           ],
         ),
       ),
@@ -259,34 +289,48 @@ class _TestViewState extends State<_TestView> {
       const SizedBox(
         height: 200.0,
       ),
-      if (widget.toAdd)
-        Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Text(
-            "Confermi di voler importare questo test?",
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(
-            height: 20.0,
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        Theme.of(context).buttonTheme.colorScheme!.error),
-                child: const Text("Annulla"),
+      widget.toAdd
+          ? Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Text(
+                "Confermi di voler importare questo test?",
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              ElevatedButton(
-                  onPressed: () {
-                    FirebaseAPI.addTestToDatabase(widget.test);
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Conferma")),
-            ],
-          )
-        ]),
+              const SizedBox(
+                height: 20.0,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            Theme.of(context).buttonTheme.colorScheme!.error),
+                    child: const Text("Annulla"),
+                  ),
+                  ElevatedButton(
+                      onPressed: () {
+                        FirebaseAPI.addTestToDatabase(widget.test);
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Conferma")),
+                ],
+              )
+            ])
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: const [
+                    ElevatedButton(
+                      onPressed: null,
+                      child: Text("Stampa Test"),
+                    ),
+                  ],
+                )
+              ],
+            ),
     ]);
   }
 }
