@@ -45,11 +45,10 @@ class Test {
 
   Test.fromJson(Map<String, dynamic> map)
       : id = map["id"] as String,
-        date = DateFormat("d-M-y").parse(map["date"]),
+        date = DateTime.parse(map["date"]),
         questions = [] {
     map["questions"].forEach((value) {
-      questions.add(Question.fromJson(
-          Map<String, dynamic>.from(value as Map<Object?, Object?>)));
+      questions.add(value);
     });
   }
 
@@ -77,7 +76,7 @@ class Test {
 
   @override
   String toString() {
-    String string = 'Test n.$id'
+    String string = 'Test id:$id'
         '\n'
         'date: $date'
         '\n'

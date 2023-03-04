@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'test.dart';
@@ -20,6 +19,13 @@ class FirebaseAPI {
   static Future<FirebaseApp> initializeApp() async {
     return Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+  }
+
+  static String? getUserDisplayName(User? user) {
+    if (user != null) {
+      return user.uid;
+    }
+    return null;
   }
 
   static void addTestToDatabase(Test test) {
