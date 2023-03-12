@@ -20,7 +20,7 @@ class Test {
     document.rootElement.findElements("question").forEach((q) {
       String? name = q.getElement("name")?.getElement("text")?.text;
       String? text = q.getElement("questiontext")?.getElement("text")?.text;
-      bool? trueFalse = q.getAttribute("type") != "multichoice";
+      bool? isTrueFalse = q.getAttribute("type") != "multichoice";
 
       int? correctAnswer;
       List<String> answers = [];
@@ -32,7 +32,7 @@ class Test {
       }
 
       if (name != null && text != null && correctAnswer != null) {
-        Question d = Question(name, trueFalse, text, answers, correctAnswer);
+        Question d = Question(name, isTrueFalse, text, answers, correctAnswer);
         questions.add(d);
       } else {
         throw Exception("non sono stati trovati tutti i campi in una domanda: "
@@ -56,22 +56,22 @@ class Test {
         "date": date.toString(),
       };
 
-  static Future<int> fetchId() async {
-    DatabaseReference idRef = FirebaseDatabase.instance.ref("counters");
-    TransactionResult result = await idRef.runTransaction((counter) {
-      if (counter == null) {
-        return Transaction.abort();
+  Test randomize() {
+    List<Question> questionsRand = [];
+    for (Question q in questions) {
+      if (!q.isTrueFalse) {
+        List<String> answersRand = q.answers;
+        answersRand.shuffle();
+        int correctIndexRand = answersRand
+            .indexWhere((element) => element == q.answers[q.correctIndex]);
+        questionsRand.add(Question(
+            q.name, q.isTrueFalse, q.text, answersRand, correctIndexRand));
+      } else {
+        questionsRand.add(q);
       }
-
-      Map<String, int> counterMap = Map<String, int>.from(counter as Map);
-      counterMap["tests"] = (counterMap["tests"] ?? 0) + 1;
-      return Transaction.success(counterMap);
-    }, applyLocally: false);
-    if (result.committed) {
-      var idTest = result.snapshot.child("tests").value;
-      return idTest as Future<int>;
     }
-    return 0;
+    questionsRand.shuffle();
+    return Test(id, date, questionsRand);
   }
 
   @override
