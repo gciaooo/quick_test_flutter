@@ -364,49 +364,89 @@ void printTest(Test test) async {
       build: (pw.Context context) {
         return pw.Column(
           children: [
-            pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Expanded(
-                child: pw.Text(randomizedTest.id),
-              ),
-              pw.Text("QuickTest",
-                  style: pw.Theme.of(context)
-                      .defaultTextStyle
-                      .copyWith(fontWeight: pw.FontWeight.bold)),
-            ]),
+            pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(5.0),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(width: 2.0),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(2.0)),
+                    ),
+                    child: pw.Text("QuickTest",
+                        style: pw.Theme.of(context).defaultTextStyle.copyWith(
+                            fontWeight: pw.FontWeight.bold, fontSize: 25)),
+                  )
+                ]),
             pw.Expanded(
-              child: pw.ListView.separated(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 50.0),
-                  itemCount: randomizedTest.questions.length,
-                  itemBuilder: (context, int index) {
-                    Question q = randomizedTest.questions[index];
-                    return pw.Column(children: [
-                      pw.Text(parseHtml(q.text)),
-                      pw.SizedBox(height: 10.0),
-                      pw.Table(children: [
-                        if (q.isTrueFalse)
-                          pw.TableRow(children: [
-                            pw.Row(children: [
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 5.0),
-                                child: pw.Checkbox(value: false, name: "1"),
-                              ),
-                              pw.Text("Vero"),
+              child: pw.Container(
+                padding: const pw.EdgeInsets.all(10.0),
+                margin: const pw.EdgeInsets.all(10.0),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(width: 2.0),
+                  borderRadius:
+                      const pw.BorderRadius.all(pw.Radius.circular(5.0)),
+                ),
+                child: pw.ListView.separated(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 50.0),
+                    itemCount: randomizedTest.questions.length,
+                    itemBuilder: (context, int index) {
+                      Question q = randomizedTest.questions[index];
+                      return pw.Column(children: [
+                        pw.SizedBox(
+                            // padding: const pw.EdgeInsets.all(5.0),
+                            // decoration: pw.BoxDecoration(border: pw.Border.all()),
+                            child: pw.Expanded(
+                          child: pw.Text(parseHtml(q.text)),
+                        )),
+                        pw.SizedBox(height: 10.0),
+                        pw.Table(children: [
+                          if (q.isTrueFalse)
+                            pw.TableRow(children: [
+                              pw.Row(children: [
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.symmetric(
+                                      horizontal: 5.0),
+                                  child: pw.Checkbox(value: false, name: "1"),
+                                ),
+                                pw.Text("Vero"),
+                              ]),
+                              pw.Row(children: [
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.symmetric(
+                                      horizontal: 5.0),
+                                  child: pw.Checkbox(value: false, name: "0"),
+                                ),
+                                pw.Text("Falso"),
+                              ])
                             ]),
-                            pw.Row(children: [
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 5.0),
-                                child: pw.Checkbox(value: false, name: "0"),
-                              ),
-                              pw.Text("Falso"),
-                            ])
+                          if (!q.isTrueFalse)
+                            pw.TableRow(
+                              children: [
+                                for (int i = 0; i < q.answers.length; i++)
+                                  if (i % 2 != 0)
+                                    pw.Row(children: [
+                                      pw.Padding(
+                                        padding: const pw.EdgeInsets.symmetric(
+                                            horizontal: 5.0),
+                                        child: pw.Checkbox(
+                                            value: false, name: "$i"),
+                                      ),
+                                      pw.Text(
+                                        parseHtml(q.answers[i]),
+                                      ),
+                                    ])
+                              ],
+                            ),
+                          pw.TableRow(children: [
+                            pw.SizedBox(height: 5.0),
                           ]),
-                        if (!q.isTrueFalse)
-                          pw.TableRow(
-                            children: [
+                          if (!q.isTrueFalse)
+                            pw.TableRow(children: [
                               for (int i = 0; i < q.answers.length; i++)
-                                if (i % 2 != 0)
+                                if (i % 2 == 0)
                                   pw.Row(children: [
                                     pw.Padding(
                                       padding: const pw.EdgeInsets.symmetric(
@@ -418,38 +458,30 @@ void printTest(Test test) async {
                                       parseHtml(q.answers[i]),
                                     ),
                                   ])
-                            ],
-                          ),
-                        pw.TableRow(children: [
-                          pw.SizedBox(height: 5.0),
+                            ]),
                         ]),
-                        if (!q.isTrueFalse)
-                          pw.TableRow(children: [
-                            for (int i = 0; i < q.answers.length; i++)
-                              if (i % 2 == 0)
-                                pw.Row(children: [
-                                  pw.Padding(
-                                    padding: const pw.EdgeInsets.symmetric(
-                                        horizontal: 5.0),
-                                    child:
-                                        pw.Checkbox(value: false, name: "$i"),
-                                  ),
-                                  pw.Text(
-                                    parseHtml(q.answers[i]),
-                                  ),
-                                ])
-                          ]),
-                      ]),
-                    ]);
-                  },
-                  separatorBuilder: (context, index) => pw.Divider()),
+                      ]);
+                    },
+                    separatorBuilder: (context, index) =>
+                        pw.Divider(height: 50)),
+              ),
+            ),
+            pw.Footer(
+              leading: pw.Text(randomizedTest.id,
+                  style: pw.Theme.of(context)
+                      .defaultTextStyle
+                      .copyWith(fontWeight: pw.FontWeight.bold, fontSize: 25)),
             ),
           ],
         );
       }));
 
-  final output = await getApplicationDocumentsDirectory();
-  final file = File('${output.path}/test.pdf');
+  final appDir = await getApplicationDocumentsDirectory();
+  final outDir = Directory("${appDir.path}/scan");
+  if (!outDir.existsSync()) {
+    outDir.createSync(recursive: true);
+  }
+  final file = File('${outDir.path}/test.pdf');
   await file.writeAsBytes(await pdf.save());
 
   await Printing.layoutPdf(
