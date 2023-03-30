@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:camera/camera.dart';
 import 'package:image/image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -6,6 +7,8 @@ import 'package:native_opencv/native_opencv.dart';
 
 import 'firebase_api.dart';
 import 'test.dart';
+
+List<CameraDescription> cameras = [];
 
 Future<Map<Test, Map<Question, bool>>?> scanDocument(
     File output, NativeOpencv cv) async {

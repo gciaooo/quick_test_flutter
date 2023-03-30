@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import 'firebase_options.dart';
 import 'test.dart';
@@ -10,6 +12,7 @@ import 'test.dart';
 class FirebaseAPI {
   static final FirebaseAuth auth = FirebaseAuth.instance;
   static final FirebaseDatabase _db = FirebaseDatabase.instance;
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
 
   static final DatabaseReference userRef =
       _db.ref("users/${auth.currentUser!.uid}");
@@ -19,6 +22,8 @@ class FirebaseAPI {
   static DatabaseReference singleTestRef(String testKey) =>
       _db.ref("tests/$testKey");
   static final DatabaseReference questionsRef = _db.ref("questions");
+  static DatabaseReference userTestPrintRef(String t) =>
+      _db.ref("printed/$t/${auth.currentUser!.uid}");
   static DatabaseReference singleQuestionRef(String questionKey) =>
       _db.ref("questions/$questionKey");
   static Future<FirebaseApp> initializeApp() async {
@@ -134,5 +139,27 @@ class FirebaseAPI {
       if (e.code == 'user-not-found') {
       } else if (e.code == 'wrong-password') {}
     }
+  }
+
+  static Future<void> uploadPrint(File document, String test) async {
+    final printKey = await userTestPrintRef(test).once();
+
+    if (printKey.snapshot.value != null) {
+      await _storage.ref(printKey.snapshot.value.toString()).delete();
+    }
+
+    final fileKey = DateTime.now().millisecondsSinceEpoch.toString();
+    await userTestPrintRef(test).set(fileKey);
+    await _storage.ref(fileKey).putFile(document);
+  }
+
+  static Future<File> fetchPrintQuery(String id, Directory outDir) async {
+    final fileKey = await userTestPrintRef(id).get();
+    final file = File("${outDir.path}/test.pdf");
+    final task = await _storage.ref(fileKey.value.toString()).getData();
+    if (task != null) {
+      file.writeAsBytesSync(task);
+    }
+    return file;
   }
 }

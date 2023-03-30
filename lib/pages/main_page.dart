@@ -13,7 +13,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:html/parser.dart' show parse;
 
 import '../firebase_api.dart';
+import '../scan.dart';
 import '../test.dart';
+import 'scan_page.dart';
 
 Widget mainPage(bool logged) => _MainPage(logged);
 Widget accountPage() => _AccountPage();
@@ -391,11 +393,31 @@ class _TestViewState extends State<_TestView> {
                             onPressed: () {
                               printTest(widget.test);
                             },
-                            child: const Text("Stampa Test"),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Icon(Icons.print),
+                                Text("Stampa test")
+                              ],
+                            ),
                           )
                         : Text(
                             "${numCorrect}/${widget.questionMarks!.keys.length} risposte corrette",
                             style: Theme.of(context).textTheme.titleMedium),
+                    if (!widget.marked)
+                      ElevatedButton(
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      screenshotPage(cameras, widget.test.id))),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              Icon(Icons.document_scanner),
+                              Text("Scannerizza test")
+                            ],
+                          ))
                   ],
                 )
               ],
@@ -553,15 +575,15 @@ void printTest(Test test) async {
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
-  final file = File('${outDir.path}/test.pdf');
-  await file.writeAsBytes(await pdf.save());
+  final document = File('${outDir.path}/test.pdf');
+  await document.writeAsBytes(await pdf.save());
 
   final bool printed = await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => file.readAsBytes());
+      onLayout: (PdfPageFormat format) async => document.readAsBytes());
   if (printed) {
-    // uploadTest();
+    await FirebaseAPI.uploadPrint(document, test.id);
   }
-  //file.delete();
+  document.delete();
 }
 
 //TODO: fix domande a risposta multipla con testo al centro

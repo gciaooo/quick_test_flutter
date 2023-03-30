@@ -5,16 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:native_opencv/native_opencv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:quick_test_flutter/firebase_api.dart';
 import 'package:quick_test_flutter/pages/main_page.dart';
 
 import '../scan.dart';
 
-Widget screenshotPage(List<CameraDescription> cameras) =>
-    _ScreenshotPage(cameras: cameras);
+Widget screenshotPage(List<CameraDescription> cameras, String test) =>
+    _ScreenshotPage(
+      cameras: cameras,
+      test: test,
+    );
 
 class _ScreenshotPage extends StatefulWidget {
-  const _ScreenshotPage({required this.cameras});
+  const _ScreenshotPage({required this.cameras, required this.test});
   final List<CameraDescription> cameras;
+  final String test;
 
   @override
   State<_ScreenshotPage> createState() => _ScreenshotPageState();
@@ -78,8 +83,8 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
             await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) =>
-                        _DisplayPicturePage(imgPath: input.path)));
+                    builder: (context) => _DisplayPicturePage(
+                        imgPath: input.path, test: widget.test)));
           } catch (e) {
             debugPrint('$e');
           }
@@ -96,8 +101,9 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
 }
 
 class _DisplayPicturePage extends StatefulWidget {
-  const _DisplayPicturePage({required this.imgPath});
+  const _DisplayPicturePage({required this.imgPath, required this.test});
   final String imgPath;
+  final String test;
 
   @override
   State<_DisplayPicturePage> createState() => _DisplayPicturePageState(imgPath);
@@ -116,11 +122,10 @@ class _DisplayPicturePageState extends State<_DisplayPicturePage> {
     }
 
     final input = File(imgPath);
-    // final input = File("${outDir.path}/input.jpg");
-    final query = File("${outDir.path}/query.jpeg");
+    final query = File("${outDir.path}/query.jpg");
     final output = File("${outDir.path}/scanned.jpg");
-
-    final pdfQueryDoc = await PdfDocument.openFile("${outDir.path}/test.pdf");
+    final pdfFile = await FirebaseAPI.fetchPrintQuery(widget.test, outDir);
+    final pdfQueryDoc = await PdfDocument.openData(pdfFile.readAsBytesSync());
     final pdfQueryPage = await pdfQueryDoc.getPage(1);
     final pdfImage = await pdfQueryPage.render(
         width: pdfQueryPage.width,
@@ -128,7 +133,6 @@ class _DisplayPicturePageState extends State<_DisplayPicturePage> {
         format: PdfPageImageFormat.jpeg);
     if (pdfImage != null) {
       query.writeAsBytesSync(pdfImage.bytes);
-      // cv.cropDocument(widget.imgPath, query.path, output.path);
       cv.cropDocument(input.path, query.path, output.path);
       debugPrint("DONE SCAN");
       setState(() {
