@@ -161,8 +161,10 @@ class _QuickTestActionButton extends StatelessWidget {
           label: "Scannerizza test",
         ),
         SpeedDialChild(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => importTestPage(true))),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => importTestPage(true, false))),
           child: const Icon(Icons.note_add_rounded),
           label: "Importa test",
         ),

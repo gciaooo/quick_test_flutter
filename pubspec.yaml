@@ -52,6 +52,8 @@ dependencies:
   flutter_html: ^3.0.0-alpha.6
   html: ^0.15.2
   pdfx: ^2.3.0
+  google_mlkit_text_recognition: ^0.5.0
+  image: ^4.0.15
 
 dev_dependencies:
   flutter_test:

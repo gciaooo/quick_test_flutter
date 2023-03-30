@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:native_opencv/native_opencv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:quick_test_flutter/pages/main_page.dart';
+
+import '../scan.dart';
 
 Widget screenshotPage(List<CameraDescription> cameras) =>
     _ScreenshotPage(cameras: cameras);
@@ -47,7 +50,7 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.done) {
-              return CameraPreview(_controller);
+              return Center(child: Expanded(child: CameraPreview(_controller)));
             } else {
               return const Center(
                 child: CircularProgressIndicator(),
@@ -84,12 +87,16 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
         child: const Icon(Icons.camera_alt),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        child: Container(height: 50.0),
+      ),
     );
   }
 }
 
 class _DisplayPicturePage extends StatefulWidget {
-  _DisplayPicturePage({required this.imgPath});
+  const _DisplayPicturePage({required this.imgPath});
   final String imgPath;
 
   @override
@@ -109,6 +116,7 @@ class _DisplayPicturePageState extends State<_DisplayPicturePage> {
     }
 
     final input = File(imgPath);
+    // final input = File("${outDir.path}/input.jpg");
     final query = File("${outDir.path}/query.jpeg");
     final output = File("${outDir.path}/scanned.jpg");
 
@@ -126,34 +134,47 @@ class _DisplayPicturePageState extends State<_DisplayPicturePage> {
       setState(() {
         imgPath = output.path;
       });
+      final marking = await scanDocument(output, cv);
+      if (marking != null && context.mounted) {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => markTestPage(false, true,
+                    marking.keys.first, marking.entries.first.value)));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Column(
-      children: [
-        Image.file(File(imgPath)),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              style: FilledButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).buttonTheme.colorScheme!.error),
-              child: const Text(
-                "Riprova",
+      body: Center(
+        child: Image.file(File(imgPath)),
+      ),
+      bottomNavigationBar: BottomAppBar(
+        child: Container(
+          height: 50.0,
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).buttonTheme.colorScheme!.error),
+                child: const Text(
+                  "Riprova",
+                ),
               ),
-            ),
-            FilledButton(
-              onPressed: scanTest,
-              child: const Text("Conferma"),
-            ),
-          ],
-        )
-      ],
-    ));
+              FilledButton(
+                onPressed: scanTest,
+                child: const Text("Conferma"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

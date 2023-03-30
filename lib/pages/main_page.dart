@@ -17,7 +17,10 @@ import '../test.dart';
 
 Widget mainPage(bool logged) => _MainPage(logged);
 Widget accountPage() => _AccountPage();
-Widget importTestPage(bool toAdd) => _TestPage(toAdd: toAdd);
+Widget importTestPage(bool toAdd, bool marked) => _TestPage(toAdd, marked);
+Widget markTestPage(
+        bool toAdd, bool marked, Test test, Map<Question, bool> marks) =>
+    _TestPage(toAdd, marked, test, marks);
 
 class _MainPage extends StatelessWidget {
   const _MainPage(this.logged);
@@ -40,10 +43,26 @@ class _MainPage extends StatelessWidget {
   }
 }
 
-class _MainPageLogged extends StatelessWidget {
-  final user = FirebaseAPI.auth.currentUser!;
+class _MainPageLogged extends StatefulWidget {
+  @override
+  State<_MainPageLogged> createState() => _MainPageLoggedState();
+}
 
-  String? userDisplayName() => FirebaseAPI.getUserDisplayName(user);
+class _MainPageLoggedState extends State<_MainPageLogged> {
+  String? _userName;
+
+  void listenUser() async {
+    _userName = await FirebaseAPI.getUserDisplayName();
+    setState(() {
+      _userName = _userName;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    listenUser();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +74,7 @@ class _MainPageLogged extends StatelessWidget {
         children: [
           Center(
             child: Text(
-              "Pagina di ${user.uid}",
+              "Pagina di $_userName",
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
@@ -167,12 +186,15 @@ class _TestListViewState extends State<_TestListView> {
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) =>
-                            _TestPage(test: t, toAdd: false))),
+                        builder: (context) => _TestPage(
+                              false,
+                              false,
+                              t,
+                            ))),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Prova " '${t.id}'),
+                    Expanded(child: Text(t.id)),
                     //TODO: change data format with dart:intl
                     Expanded(
                       child: Text(
@@ -196,10 +218,13 @@ class _TestListViewState extends State<_TestListView> {
 }
 
 class _TestPage extends StatefulWidget {
-  _TestPage({this.test, required this.toAdd});
+  _TestPage(this.toAdd, this.marked,
+      [this.test, this.questionsMarked = const {}]);
 
   late Test? test;
   final bool toAdd;
+  final bool marked;
+  late Map<Question, bool> questionsMarked = {};
 
   @override
   State<_TestPage> createState() => _TestPageState();
@@ -244,11 +269,14 @@ class _TestPageState extends State<_TestPage> {
         child: Column(
           children: [
             !_selected && widget.toAdd
-                ? FilledButton(
-                    onPressed: _importTest,
-                    child: const Text("Seleziona file..."),
+                ? Center(
+                    child: FilledButton(
+                      onPressed: _importTest,
+                      child: const Text("Seleziona file..."),
+                    ),
                   )
-                : _TestView(widget.test!, widget.toAdd),
+                : _TestView(widget.test!, widget.toAdd, widget.marked,
+                    widget.questionsMarked),
           ],
         ),
       ),
@@ -257,9 +285,11 @@ class _TestPageState extends State<_TestPage> {
 }
 
 class _TestView extends StatefulWidget {
-  const _TestView(this.test, this.toAdd);
+  const _TestView(this.test, this.toAdd, this.marked, [this.questionMarks]);
   final Test test;
   final bool toAdd;
+  final bool marked;
+  final Map<Question, bool>? questionMarks;
 
   List<Question> getQuestions() => test.questions;
 
@@ -269,11 +299,19 @@ class _TestView extends StatefulWidget {
 
 class _TestViewState extends State<_TestView> {
   late final List<bool> expandedItems;
+  late final int numCorrect;
+
+  int getNumMarks() {
+    return widget.questionMarks!.values
+        .where((element) => element == true)
+        .length;
+  }
 
   @override
   void initState() {
     super.initState();
     expandedItems = List<bool>.filled(widget.test.questions.length, false);
+    if (widget.marked) numCorrect = getNumMarks();
   }
 
   @override
@@ -285,11 +323,26 @@ class _TestViewState extends State<_TestView> {
               headerBuilder: (context, isExpanded) {
                 return ListTile(title: Text(q.name));
               },
-              body: ListTile(
-                title: Html(data: q.text),
-                subtitle: Text(
-                    "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"),
-              ),
+              body: !widget.marked
+                  ? ListTile(
+                      title: Html(data: q.text),
+                      subtitle: Text(
+                          "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"),
+                    )
+                  : ListTile(
+                      title: Html(data: q.text),
+                      subtitle: Text(
+                          "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"),
+                      trailing: widget.questionMarks![q] != null
+                          ? Icon(
+                              widget.questionMarks![q]!
+                                  ? Icons.check_circle_outlined
+                                  : Icons.remove_circle_outline,
+                              color: widget.questionMarks![q]!
+                                  ? Colors.green.shade400
+                                  : Colors.red.shade400)
+                          : const Icon(Icons.error_outline),
+                    ),
               isExpanded: expandedItems[widget.test.questions.indexOf(q)],
             );
           }).toList(),
@@ -333,12 +386,16 @@ class _TestViewState extends State<_TestView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        printTest(widget.test);
-                      },
-                      child: const Text("Stampa Test"),
-                    ),
+                    !widget.marked
+                        ? ElevatedButton(
+                            onPressed: () {
+                              printTest(widget.test);
+                            },
+                            child: const Text("Stampa Test"),
+                          )
+                        : Text(
+                            "${numCorrect}/${widget.questionMarks!.keys.length} risposte corrette",
+                            style: Theme.of(context).textTheme.titleMedium),
                   ],
                 )
               ],
@@ -361,6 +418,7 @@ void printTest(Test test) async {
 
   pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(15.0),
       build: (pw.Context context) {
         return pw.Column(
           children: [
@@ -369,28 +427,29 @@ void printTest(Test test) async {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Container(
-                    padding: const pw.EdgeInsets.all(5.0),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(width: 2.0),
-                      borderRadius:
-                          const pw.BorderRadius.all(pw.Radius.circular(2.0)),
-                    ),
-                    child: pw.Text("QuickTest",
+                      padding: const pw.EdgeInsets.all(5.0),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(width: 2.0),
+                        borderRadius:
+                            const pw.BorderRadius.all(pw.Radius.circular(2.0)),
+                      ),
+                      child: pw.Text(
+                        "QuickTest",
                         style: pw.Theme.of(context).defaultTextStyle.copyWith(
-                            fontWeight: pw.FontWeight.bold, fontSize: 25)),
-                  )
+                            fontWeight: pw.FontWeight.bold, fontSize: 30),
+                      )),
                 ]),
             pw.Expanded(
               child: pw.Container(
-                padding: const pw.EdgeInsets.all(10.0),
-                margin: const pw.EdgeInsets.all(10.0),
+                padding: const pw.EdgeInsets.all(15.0),
+                margin: const pw.EdgeInsets.all(20.0),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(width: 2.0),
                   borderRadius:
                       const pw.BorderRadius.all(pw.Radius.circular(5.0)),
                 ),
                 child: pw.ListView.separated(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 50.0),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 30.0),
                     itemCount: randomizedTest.questions.length,
                     itemBuilder: (context, int index) {
                       Question q = randomizedTest.questions[index];
@@ -399,27 +458,36 @@ void printTest(Test test) async {
                             // padding: const pw.EdgeInsets.all(5.0),
                             // decoration: pw.BoxDecoration(border: pw.Border.all()),
                             child: pw.Expanded(
-                          child: pw.Text(parseHtml(q.text)),
+                          child: pw.Text(parseHtml(q.text),
+                              style: pw.Theme.of(context)
+                                  .defaultTextStyle
+                                  .copyWith(fontSize: 17)),
                         )),
-                        pw.SizedBox(height: 10.0),
+                        pw.SizedBox(height: 30.0),
                         pw.Table(children: [
                           if (q.isTrueFalse)
                             pw.TableRow(children: [
                               pw.Row(children: [
                                 pw.Padding(
                                   padding: const pw.EdgeInsets.symmetric(
-                                      horizontal: 5.0),
+                                      horizontal: 20.0),
                                   child: pw.Checkbox(value: false, name: "1"),
                                 ),
-                                pw.Text("Vero"),
+                                pw.Text("Vero",
+                                    style: pw.Theme.of(context)
+                                        .defaultTextStyle
+                                        .copyWith(fontSize: 17)),
                               ]),
                               pw.Row(children: [
                                 pw.Padding(
                                   padding: const pw.EdgeInsets.symmetric(
-                                      horizontal: 5.0),
+                                      horizontal: 20.0),
                                   child: pw.Checkbox(value: false, name: "0"),
                                 ),
-                                pw.Text("Falso"),
+                                pw.Text("Falso",
+                                    style: pw.Theme.of(context)
+                                        .defaultTextStyle
+                                        .copyWith(fontSize: 17)),
                               ])
                             ]),
                           if (!q.isTrueFalse)
@@ -430,12 +498,15 @@ void printTest(Test test) async {
                                     pw.Row(children: [
                                       pw.Padding(
                                         padding: const pw.EdgeInsets.symmetric(
-                                            horizontal: 5.0),
+                                            horizontal: 20.0),
                                         child: pw.Checkbox(
                                             value: false, name: "$i"),
                                       ),
                                       pw.Text(
                                         parseHtml(q.answers[i]),
+                                        style: pw.Theme.of(context)
+                                            .defaultTextStyle
+                                            .copyWith(fontSize: 15),
                                       ),
                                     ])
                               ],
@@ -450,13 +521,14 @@ void printTest(Test test) async {
                                   pw.Row(children: [
                                     pw.Padding(
                                       padding: const pw.EdgeInsets.symmetric(
-                                          horizontal: 5.0),
+                                          horizontal: 20.0),
                                       child:
                                           pw.Checkbox(value: false, name: "$i"),
                                     ),
-                                    pw.Text(
-                                      parseHtml(q.answers[i]),
-                                    ),
+                                    pw.Text(parseHtml(q.answers[i]),
+                                        style: pw.Theme.of(context)
+                                            .defaultTextStyle
+                                            .copyWith(fontSize: 15)),
                                   ])
                             ]),
                         ]),
@@ -484,8 +556,12 @@ void printTest(Test test) async {
   final file = File('${outDir.path}/test.pdf');
   await file.writeAsBytes(await pdf.save());
 
-  await Printing.layoutPdf(
+  final bool printed = await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => file.readAsBytes());
+  if (printed) {
+    // uploadTest();
+  }
+  //file.delete();
 }
 
 //TODO: fix domande a risposta multipla con testo al centro
