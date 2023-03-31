@@ -11,7 +11,6 @@ import 'pages/login_page.dart';
 import 'pages/settings_page.dart';
 import 'scan.dart';
 
-//TODO: if building release ver: https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseAPI.initializeApp();

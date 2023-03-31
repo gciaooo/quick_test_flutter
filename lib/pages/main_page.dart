@@ -267,21 +267,15 @@ class _TestPageState extends State<_TestPage> {
             ? const Text("Conferma Test")
             : Text("Test ${widget.test!.id}"),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            !_selected && widget.toAdd
-                ? Center(
-                    child: FilledButton(
-                      onPressed: _importTest,
-                      child: const Text("Seleziona file..."),
-                    ),
-                  )
-                : _TestView(widget.test!, widget.toAdd, widget.marked,
-                    widget.questionsMarked),
-          ],
-        ),
-      ),
+      body: !_selected && widget.toAdd
+          ? Center(
+              child: FilledButton(
+                onPressed: _importTest,
+                child: const Text("Seleziona file..."),
+              ),
+            )
+          : _TestView(widget.test!, widget.toAdd, widget.marked,
+              widget.questionsMarked),
     );
   }
 }
