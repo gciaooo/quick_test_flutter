@@ -4,18 +4,19 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:quick_test_flutter/pages/scan_page.dart';
 
 import 'firebase_api.dart';
 import 'pages/main_page.dart';
 import 'pages/login_page.dart';
 import 'pages/settings_page.dart';
+import 'scan.dart';
 
 //TODO: if building release ver: https://github.com/miguelpruivo/flutter_file_picker/wiki/Setup
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseAPI.initializeApp();
-  final cameras = await availableCameras();
+  cameras = await availableCameras();
+
   runApp(MyApp(cameras: cameras));
 }
 
@@ -155,14 +156,10 @@ class _QuickTestActionButton extends StatelessWidget {
       mini: false,
       children: [
         SpeedDialChild(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => screenshotPage(cameras))),
-          child: const Icon(Icons.document_scanner),
-          label: "Scannerizza test",
-        ),
-        SpeedDialChild(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => importTestPage(true))),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => importTestPage(true, false))),
           child: const Icon(Icons.note_add_rounded),
           label: "Importa test",
         ),
