@@ -28,6 +28,7 @@ class _ScreenshotPage extends StatefulWidget {
 class _ScreenshotPageState extends State<_ScreenshotPage> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
+  final NativeOpencv cv = NativeOpencv();
 
   @override
   void initState() {
@@ -47,6 +48,36 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
     super.dispose();
   }
 
+  Future<File> cropDocument(XFile image) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final outDir = Directory("${appDir.path}/scan");
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
+    }
+
+    final input = File("${outDir.path}/input.jpg");
+    final imageBytes = await image.readAsBytes();
+    input.writeAsBytesSync(imageBytes, flush: true);
+
+    final query = File("${outDir.path}/query.jpg");
+    final output = File("${outDir.path}/scanned.jpg");
+
+    final pdfFile = await FirebaseAPI.fetchPrintQuery(widget.test, outDir);
+    final pdfQueryDoc = await PdfDocument.openData(pdfFile.readAsBytesSync());
+    final pdfQueryPage = await pdfQueryDoc.getPage(1);
+    final pdfImage = await pdfQueryPage.render(
+        width: pdfQueryPage.width,
+        height: pdfQueryPage.height,
+        format: PdfPageImageFormat.jpeg);
+    if (pdfImage != null) {
+      query.writeAsBytesSync(pdfImage.bytes);
+      cv.cropDocument(input.path, query.path, output.path);
+      debugPrint("DONE SCAN");
+    }
+
+    return output;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,13 +85,11 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
       body: FutureBuilder(
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              return Center(child: Expanded(child: CameraPreview(_controller)));
-            } else {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            }
+            return snapshot.connectionState == ConnectionState.done
+                ? Center(child: CameraPreview(_controller))
+                : const Center(
+                    child: CircularProgressIndicator(),
+                  );
           }),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -68,15 +97,7 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
             await _initializeControllerFuture;
             final image = await _controller.takePicture();
 
-            final appDir = await getApplicationDocumentsDirectory();
-            final outDir = Directory("${appDir.path}/scan");
-            if (!outDir.existsSync()) {
-              outDir.createSync(recursive: true);
-            }
-
-            final input = File("${outDir.path}/input.jpg");
-            final imageBytes = await image.readAsBytes();
-            input.writeAsBytesSync(imageBytes, flush: true);
+            final input = await cropDocument(image);
 
             if (!mounted) return;
 
@@ -85,6 +106,7 @@ class _ScreenshotPageState extends State<_ScreenshotPage> {
                 MaterialPageRoute(
                     builder: (context) => _DisplayPicturePage(
                         imgPath: input.path, test: widget.test)));
+            imageCache.clear();
           } catch (e) {
             debugPrint('$e');
           }
@@ -106,46 +128,20 @@ class _DisplayPicturePage extends StatefulWidget {
   final String test;
 
   @override
-  State<_DisplayPicturePage> createState() => _DisplayPicturePageState(imgPath);
+  State<_DisplayPicturePage> createState() => _DisplayPicturePageState();
 }
 
 class _DisplayPicturePageState extends State<_DisplayPicturePage> {
-  _DisplayPicturePageState(this.imgPath);
-  String imgPath;
   final NativeOpencv cv = NativeOpencv();
 
   void scanTest() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final outDir = Directory("${appDir.path}/scan");
-    if (!outDir.existsSync()) {
-      outDir.createSync(recursive: true);
-    }
-
-    final input = File(imgPath);
-    final query = File("${outDir.path}/query.jpg");
-    final output = File("${outDir.path}/scanned.jpg");
-    final pdfFile = await FirebaseAPI.fetchPrintQuery(widget.test, outDir);
-    final pdfQueryDoc = await PdfDocument.openData(pdfFile.readAsBytesSync());
-    final pdfQueryPage = await pdfQueryDoc.getPage(1);
-    final pdfImage = await pdfQueryPage.render(
-        width: pdfQueryPage.width,
-        height: pdfQueryPage.height,
-        format: PdfPageImageFormat.jpeg);
-    if (pdfImage != null) {
-      query.writeAsBytesSync(pdfImage.bytes);
-      cv.cropDocument(input.path, query.path, output.path);
-      debugPrint("DONE SCAN");
-      setState(() {
-        imgPath = output.path;
-      });
-      final marking = await scanDocument(output, cv);
-      if (marking != null && context.mounted) {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => markTestPage(false, true,
-                    marking.keys.first, marking.entries.first.value)));
-      }
+    final marking = await scanDocument(File(widget.imgPath), cv);
+    if (marking != null && context.mounted) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => markTestPage(false, true,
+                  marking.keys.first, marking.entries.first.value)));
     }
   }
 
@@ -153,7 +149,7 @@ class _DisplayPicturePageState extends State<_DisplayPicturePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Image.file(File(imgPath)),
+        child: Image.file(File(widget.imgPath)),
       ),
       bottomNavigationBar: BottomAppBar(
         child: Container(
