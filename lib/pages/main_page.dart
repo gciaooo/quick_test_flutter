@@ -21,7 +21,7 @@ Widget mainPage(bool logged) => _MainPage(logged);
 Widget accountPage() => _AccountPage();
 Widget importTestPage(bool toAdd, bool marked) => _TestPage(toAdd, marked);
 Widget markTestPage(
-        bool toAdd, bool marked, Test test, Map<Question, bool> marks) =>
+        bool toAdd, bool marked, Test test, Map<Question, Mark> marks) =>
     _TestPage(toAdd, marked, test, marks);
 
 class _MainPage extends StatelessWidget {
@@ -226,7 +226,7 @@ class _TestPage extends StatefulWidget {
   late Test? test;
   final bool toAdd;
   final bool marked;
-  late Map<Question, bool> questionsMarked = {};
+  late Map<Question, Mark> questionsMarked = {};
 
   @override
   State<_TestPage> createState() => _TestPageState();
@@ -285,7 +285,7 @@ class _TestView extends StatefulWidget {
   final Test test;
   final bool toAdd;
   final bool marked;
-  final Map<Question, bool>? questionMarks;
+  final Map<Question, Mark>? questionMarks;
 
   List<Question> getQuestions() => test.questions;
 
@@ -299,7 +299,7 @@ class _TestViewState extends State<_TestView> {
 
   int getNumMarks() {
     return widget.questionMarks!.values
-        .where((element) => element == true)
+        .where((markClass) => markClass.mark == true)
         .length;
   }
 
@@ -328,15 +328,19 @@ class _TestViewState extends State<_TestView> {
                   : ListTile(
                       title: Html(data: q.text),
                       subtitle: Text(
-                          "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"),
+                          "Tipo di domanda: ${q.isTrueFalse ? "Vero o falso" : "Risposte multiple"}"
+                          "\n"
+                          "Risposta rilevata: ${widget.questionMarks![q] != null ? widget.questionMarks![q]!.answer ?? "ERRORE" : "ERRORE"}"),
                       trailing: widget.questionMarks![q] != null
-                          ? Icon(
-                              widget.questionMarks![q]!
-                                  ? Icons.check_circle_outlined
-                                  : Icons.remove_circle_outline,
-                              color: widget.questionMarks![q]!
-                                  ? Colors.green.shade400
-                                  : Colors.red.shade400)
+                          ? widget.questionMarks![q]!.answer != null
+                              ? Icon(
+                                  widget.questionMarks![q]!.mark
+                                      ? Icons.check_circle_outlined
+                                      : Icons.remove_circle_outline,
+                                  color: widget.questionMarks![q]!.mark
+                                      ? Colors.green.shade400
+                                      : Colors.red.shade400)
+                              : const Icon(Icons.error_outline)
                           : const Icon(Icons.error_outline),
                     ),
               isExpanded: expandedItems[widget.test.questions.indexOf(q)],

@@ -10,7 +10,19 @@ import 'test.dart';
 
 List<CameraDescription> cameras = [];
 
-Future<Map<Test, Map<Question, bool>>?> scanDocument(
+class Mark {
+  Mark({required this.question, required this.answer, required this.mark});
+  Question question;
+  bool mark;
+  String? answer;
+
+  @override
+  String toString() {
+    return "Mark[question: ${question.name}, mark: $mark, answer: $answer]";
+  }
+}
+
+Future<Map<Test, Map<Question, Mark>>?> scanDocument(
     File output, NativeOpencv cv) async {
   final mlImage = InputImage.fromFile(output);
   final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -90,16 +102,20 @@ Future<Map<Test, Map<Question, bool>>?> scanDocument(
     //   }
     // }
 
-    Map<Question, bool> entryMarks = {};
+    Map<Question, Mark> entryMarks = {};
 
     for (Question q in questionsMap.keys) {
       Map<int, List<int>> ansCoords =
-          prepareAnswerCoordinates(questionsMap[q]!);
+          _prepareAnswerCoordinates(questionsMap[q]!);
       // int entryAns = cv.detectInputAnswer(ansCoords, output.path);
-      int entryIndex = detectInputAnswerIndex(ansCoords, output);
+      int entryIndex = _detectInputAnswerIndex(ansCoords, output);
       debugPrint("${q.name.toUpperCase()} ------- entryIndex == $entryIndex");
       if (entryIndex == -1) {
-        entryMarks[q] = false;
+        entryMarks[q] = Mark(
+          question: q,
+          answer: null,
+          mark: false,
+        );
         continue;
       }
       debugPrint("RISPOSTA ${questionsMap[q]![entryIndex].text}");
@@ -107,20 +123,29 @@ Future<Map<Test, Map<Question, bool>>?> scanDocument(
         debugPrint(
             "${q.name} --> risposta corretta: ${q.correctIndex} -> ${q.answers[q.correctIndex]}");
         if (q.correctIndex == 0) {
-          entryMarks[q] = questionsMap[q]![entryIndex].text.contains("Vero");
+          entryMarks[q] = Mark(
+              question: q,
+              answer: questionsMap[q]![entryIndex].text,
+              mark: questionsMap[q]![entryIndex].text.contains("Vero"));
         } else {
-          entryMarks[q] = questionsMap[q]![entryIndex].text.contains("Falso");
+          Mark(
+              question: q,
+              answer: questionsMap[q]![entryIndex].text,
+              mark: questionsMap[q]![entryIndex].text.contains("Falso"));
         }
       } else {
-        entryMarks[q] = q.answers[q.correctIndex]
-            .contains(questionsMap[q]![entryIndex].text);
+        entryMarks[q] = Mark(
+            question: q,
+            answer: questionsMap[q]![entryIndex].text,
+            mark: q.answers[q.correctIndex]
+                .contains(questionsMap[q]![entryIndex].text));
       }
     }
     debugPrint("ESITO: ");
     for (Question q in entryMarks.keys) {
       debugPrint("${q.name} ------------------------>   ${entryMarks[q]}");
     }
-    Map<Test, Map<Question, bool>> out = <Test, Map<Question, bool>>{
+    Map<Test, Map<Question, Mark>> out = <Test, Map<Question, Mark>>{
       test: entryMarks
     };
     return out;
@@ -128,23 +153,21 @@ Future<Map<Test, Map<Question, bool>>?> scanDocument(
   return null;
 }
 
-int detectInputAnswerIndex(Map<int, List<int>> ansCoords, File output) {
+int _detectInputAnswerIndex(Map<int, List<int>> ansCoords, File output) {
   int count = 0;
-  int xOffset = 30, yOffset = 5;
+  int xOffset = 30, yRange = 5;
   int entryIndex = -1;
   Image? img = decodeJpg(output.readAsBytesSync());
   if (img != null) {
     for (final i in ansCoords.keys) {
       int x = (ansCoords[i]![0] - xOffset);
       int y = (ansCoords[i]![1]);
-      final range = img.getRange(x, y, xOffset, yOffset);
+      final range = img.getRange(x, y, xOffset - 5, yRange);
       while (range.moveNext()) {
         Pixel pix = range.current;
         if (pix.r <= 30 && pix.g <= 30 && pix.b <= 30) {
           count++;
           entryIndex = i;
-          debugPrint("PIXEL: "
-              "${pix.toString()}");
           break;
         }
       }
@@ -153,7 +176,7 @@ int detectInputAnswerIndex(Map<int, List<int>> ansCoords, File output) {
   return count == 1 ? entryIndex : -1;
 }
 
-Map<int, List<int>> prepareAnswerCoordinates(List<TextLine> answers) {
+Map<int, List<int>> _prepareAnswerCoordinates(List<TextLine> answers) {
   Map<int, List<int>> coords = {};
   for (int i = 0; i < answers.length; i++) {
     if (!(answers[i].text.startsWith("D ") ||
